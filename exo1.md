@@ -128,73 +128,10 @@ plt.show()
 
 ## Question 5 — Obtenir une image binaire avec les contours fins en blanc
 
-L'objectif est d'extraire les **contours fins** d'une image en niveaux de gris et de produire une image binaire où :
-- les contours = **blanc (255)**
-- le reste = **noir (0)**
-
-### Étapes
-
-1. **Conversion en niveaux de gris** (si l'image est couleur).
-
-2. **Réduction du bruit** : appliquer un filtre gaussien pour éviter de détecter des faux contours dus au bruit.
-   ```python
-   from skimage.filters import gaussian
-   img_floue = gaussian(img, sigma=1)
-   ```
-
-3. **Détection de contours avec l'opérateur de Canny** :
-   Canny est l'algorithme le plus adapté pour obtenir des contours fins et précis. Il fonctionne en 4 sous-étapes :
-   - Calcul du gradient (Sobel en x et y)
-   - Calcul de l'amplitude et de la direction du gradient
-   - **Suppression des non-maxima** → amincit les contours à 1 pixel d'épaisseur
-   - **Seuillage par hystérésis** → ne conserve que les vrais contours
-
-   ```python
-   from skimage.feature import canny
-   contours = canny(img, sigma=1.0, low_threshold=0.1, high_threshold=0.2)
-   # contours est un tableau booléen : True = contour, False = fond
-   ```
-
-4. **Conversion en image binaire** :
-   ```python
-   import numpy as np
-   img_binaire = (contours * 255).astype(np.uint8)
-   # pixels de contour → 255 (blanc), reste → 0 (noir)
-   ```
-
-### Résultat
-
-On obtient une image binaire dans laquelle les contours sont représentés par des lignes blanches fines d'**un seul pixel d'épaisseur**, sur fond noir.
-
-> 💡 **Pourquoi Canny et pas Sobel directement ?** Sobel donne des contours épais (plusieurs pixels de large). Il faudrait un seuillage supplémentaire. Canny inclut déjà la suppression des non-maxima qui affine automatiquement les contours.
+Pour obtenir une image binaire dans laquelle les contours fins sont blancs et le reste est noir, on part d'une image en niveaux de gris et on applique l'algorithme de **Canny**. La première étape consiste à réduire le bruit de l'image en appliquant un filtre gaussien, car sans ce lissage, le détecteur de contours risque de réagir à des variations parasites plutôt qu'aux vraies bordures des objets. Ensuite, Canny calcule le **gradient** de l'image dans les directions horizontale et verticale (via des filtres de type Sobel), ce qui permet d'estimer à chaque pixel l'intensité et la direction du changement de niveau de gris. L'étape clé qui produit des contours fins est la **suppression des non-maxima** : pour chaque pixel, on ne conserve que ceux qui sont un maximum local dans la direction du gradient, ce qui réduit les contours épais à une ligne d'un seul pixel d'épaisseur. Enfin, un **seuillage par hystérésis** avec deux seuils (bas et haut) permet de ne retenir que les contours significatifs et d'éliminer les fragments isolés. Le résultat est un tableau booléen que l'on convertit en image binaire en multipliant par 255 : les pixels de contour deviennent blancs (255) et tout le reste reste noir (0).
 
 ---
 
 ## Question 6 — Égalisation d'histogramme vs Rehaussement d'image
 
-### Définitions
-
-| Technique | Objectif | Mécanisme |
-|---|---|---|
-| **Égalisation d'histogramme** | Améliorer le **contraste global** d'une image en redistribuant uniformément les niveaux de gris. | Utilise la **fonction de répartition cumulative (CDF)** de l'histogramme pour remapper les valeurs de pixels. |
-| **Rehaussement d'image** | Améliorer la **qualité visuelle perçue** selon un critère précis (netteté, contraste local, luminosité). | Regroupe plusieurs techniques : étirement de contraste, filtrage passe-haut, gamma, etc. Le résultat est orienté par un **objectif visuel**. |
-
-### Exemple concret
-
-Imaginons une photo prise dans une pièce sombre. Les pixels sont tous concentrés dans les niveaux bas (0–80 sur 255) — l'image est globalement sombre et peu contrastée.
-
-**Avec l'égalisation d'histogramme :**
-- La CDF est calculée automatiquement.
-- Les niveaux sombres (concentrés) sont étirés sur toute la plage 0–255.
-- L'histogramme devient approximativement plat.
-- ✅ Résultat : l'image est plus contrastée, mais parfois les zones très lumineuses sont sur-exposées.
-
-**Avec le rehaussement :**
-- On peut choisir de faire un **étirement de contraste** sur une plage ciblée (ex. forcer les pixels entre 40 et 120 à occuper 0–255).
-- Ou appliquer un **filtre passe-haut** pour accentuer les détails fins (bords, textures).
-- Ou corriger le gamma pour ajuster la luminosité perçue.
-- ✅ Résultat : plus de contrôle sur le rendu final selon ce qu'on veut mettre en valeur.
-
-### Résumé de la différence
-
-> L'**égalisation** est une transformation **automatique et globale** basée sur la statistique de l'image. Le **rehaussement** est une approche **intentionnelle** qui peut être locale, globale, ou combinée — et qui sert un objectif visuel ou applicatif précis.
+L'égalisation d'histogramme et le rehaussement d'image sont deux techniques d'amélioration visuelle, mais elles poursuivent des objectifs différents. L'**égalisation d'histogramme** est une transformation automatique et globale : elle calcule la fonction de répartition cumulative (CDF) de l'histogramme de l'image, puis l'utilise pour redistribuer les niveaux de gris de manière à obtenir un histogramme le plus plat possible. Concrètement, si on prend une photo prise dans une pièce sombre, dont les pixels sont tous concentrés entre les niveaux 0 et 80, l'égalisation va étirer cette plage sur toute l'étendue 0–255 : l'image gagne en contraste global de façon entièrement automatique, sans qu'on ait besoin de choisir des paramètres. Le **rehaussement d'image**, en revanche, est une démarche intentionnelle et orientée : il regroupe un ensemble de techniques (étirement de contraste sur une plage ciblée, filtrage passe-haut pour accentuer les détails, correction gamma pour ajuster la luminosité perçue) que l'on choisit et paramètre selon ce qu'on veut mettre en valeur dans l'image. Pour reprendre le même exemple, plutôt que d'étirer l'histogramme entier, on pourrait choisir de n'agir que sur la plage 40–120 pour préserver certaines zones, ou d'appliquer un filtre accentuant les bords pour rendre les textures plus nettes. En résumé, l'égalisation est aveugle et statistique — elle améliore le contraste sans contrôle fin — tandis que le rehaussement est guidé par un objectif visuel ou applicatif précis.
